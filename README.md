@@ -14,6 +14,14 @@ AES encryption & decryption
 
 CSPRNG
 
+Encoding and Decoding
+- UTF-8 to Binary
+- Binary to UTF-8
+- UTF-8 to Base64
+- Base64 to UTF-8
+
+
+
 ## -= Nice to have =-
 Assymetric Key Gen
 - Diffie Hellman
