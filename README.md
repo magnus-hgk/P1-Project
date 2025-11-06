@@ -21,10 +21,13 @@ Encoding and Decoding
 - Base64 to UTF-8
 
 
-
 ## -= Nice to have =-
 Assymetric Key Gen
+- Key Changing (TLS?)
 - Diffie Hellman
 Panic Wipe Button # Wipes everything
 Post Quantum Encryption
 Time Wipe?
+GUI
+Websocket - Send data over nettet via terminal
+
