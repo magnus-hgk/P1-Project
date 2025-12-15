@@ -2,31 +2,38 @@
 #include <string.h>
 #include <stdlib.h>
 #include "base64.h"
+#include <stdint.h>
 
 
-#define INITIAL_KEY 1
+// ROUNDS
 #define AES_128_ROUNDS 10
 #define AES_192_ROUNDS 12
 #define AES_256_ROUNDS 14
 
+// KEYS
+#define INITIAL_KEY 1
 #define AES_128_KEY 16
 #define AES_192_KEY 24
 #define AES_256_KEY 32
 
 #define KEY_SIZE 16
+#define MAX_WORDS_256 60
 
+// BITS AND  BYTES
 #define BITS_PER_BYTE 8
 
+// CONTEXT, STATE, WORD
 #define ROWS 4
 #define COLUMNS 4
 #define WORD 4
 #define STATE_SIZE 16
 
+// MESSAGE SIZES
 #define MAX_NUMBER_OF_BLOCKS 256
 #define BLOCK_SIZE ROWS * COLUMNS
 #define MAX_MESSAGE_LENGTH MAX_NUMBER_OF_BLOCKS * BLOCK_SIZE
 
-
+// TYPEDEF AES CONTEXT
 typedef struct 
 {   
     int blocks;
@@ -34,14 +41,14 @@ typedef struct
     int length;
     int key_len;
 
-    unsigned char key[AES_256_KEY];
-    unsigned char aes_blocks[MAX_NUMBER_OF_BLOCKS][ROWS][COLUMNS];
-    unsigned char round_keys[AES_256_ROUNDS + INITIAL_KEY][ROWS][COLUMNS];
+    uint8_t key[AES_256_KEY];
+    uint8_t aes_blocks[MAX_NUMBER_OF_BLOCKS][ROWS][COLUMNS];
+    uint8_t round_keys[AES_256_ROUNDS + INITIAL_KEY][ROWS][COLUMNS];
 } aes_context;
 
 
 // The AES Substitution Box (S-Box)
-static const unsigned char sbox[256] = {
+static const uint8_t sbox[256] = {
     // 0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,  // 0
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,  // 1
@@ -62,7 +69,7 @@ static const unsigned char sbox[256] = {
 };
 
 // The AES Inverse Substitution Box (InvS-Box)
-static const unsigned char rsbox[256] = {
+static const uint8_t rsbox[256] = {
     // 0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
     0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb, // 0
     0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb, // 1
@@ -82,52 +89,43 @@ static const unsigned char rsbox[256] = {
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d  // F
 };
 
-// 00000000 - 11111111
-
-/*
-    [0,0,0,0]
-    [1,1,1,1]
-    [2,2,2,2]
-    [3,3,3,3]
-*/
-
-static const unsigned char rijndael_galois_field[ROWS][COLUMNS] = {
+static const uint8_t rijndael_galois_field[ROWS][COLUMNS] = {
     {0x02, 0x03, 0x01, 0x01},
     {0x01, 0x02, 0x03, 0x01},
     {0x01, 0x01, 0x02, 0x03},
     {0x03, 0x01, 0x01, 0x02}
 };
 
-static const unsigned char inverse_rijndael_galois_field[ROWS][COLUMNS] = {
+static const uint8_t inverse_rijndael_galois_field[ROWS][COLUMNS] = {
     {0x0E, 0x0B, 0x0D, 0x09},
     {0x09, 0x0E, 0x0B, 0x0D},
     {0x0D, 0x09, 0x0E, 0x0B},
     {0x0B, 0x0D, 0x09, 0x0E}
 };
 
-static const unsigned char rcon[10] = {
+static const uint8_t rcon[10] = {
     0x01, 0x02, 0x04, 0x08,
     0x10, 0x20, 0x40, 0x80,
     0x1B, 0x36
 };
 
 
-int stringToHex(const char string[], unsigned char hex[])
+int stringToHex(const char string[], uint8_t hex[])
 {
     int i = 0;
     
     while (string[i] != '\0')
     {
-        hex[i] = (unsigned char)string[i];  // store numeric (hex) value
+        hex[i] = (uint8_t)string[i];  // store numeric (hex) value
         i++;
     }
 
     return i;
 }
 
-int padPlainText(unsigned char *data, int data_len)
+int padPlainText(uint8_t *data, int data_len)
 {
-    int pad_len = STATE_SIZE - (data_len % BLOCK_SIZE); // Calculates amount of bytes to add
+    int pad_len = STATE_SIZE - (data_len % STATE_SIZE); // Calculates amount of bytes to add
 
     for (int i = 0; i < pad_len; i++)
     {
@@ -137,10 +135,10 @@ int padPlainText(unsigned char *data, int data_len)
     return data_len + pad_len;
 }
 
-int removePadding(unsigned char *data, int data_len)
+int removePadding(uint8_t *data, int data_len)
 {
     int pad_len = data[data_len - 1];
-    if (pad_len < 1 || pad_len > BLOCK_SIZE)
+    if (pad_len < 1 || pad_len > STATE_SIZE)
     {
         return data_len;
     }
@@ -148,7 +146,7 @@ int removePadding(unsigned char *data, int data_len)
 }
 
 
-void printHex(unsigned char hex[], int len)
+void printHex(uint8_t hex[], int len)
 {
     for (int i = 0; i < len ; i++)
     {
@@ -157,22 +155,27 @@ void printHex(unsigned char hex[], int len)
     printf("\n");
 }
 
-void substitute(aes_context *context, const unsigned char sbox[256])
+void substituteState(uint8_t state[ROWS][COLUMNS], const uint8_t sbox[256])
 {
-    for (int i = 0; i < context->blocks; i++)
-    {
-        for (int column = 0; column < COLUMNS; column++)
+    for (int column = 0; column < COLUMNS; column++)
         {
             for (int row = 0; row < ROWS; row++)
             {
-                context->aes_blocks[i][row][column] = sbox[context->aes_blocks[i][row][column]];
+                state[row][column] = sbox[state[row][column]];
             }
         }
+}
+
+void substituteBlocks(aes_context *context, const uint8_t sbox[256])
+{
+    for (int i = 0; i < context->blocks; i++)
+    {
+        substituteState(context->aes_blocks[i], sbox);
     }
 }
 
 
-void hexToBlock(const unsigned char hex[MAX_MESSAGE_LENGTH], aes_context *context)
+void hexToBlock(const uint8_t hex[MAX_MESSAGE_LENGTH], aes_context *context)
 {
     int counter = 0;
     for (int block = 0; block < context->blocks; block++)
@@ -188,7 +191,7 @@ void hexToBlock(const unsigned char hex[MAX_MESSAGE_LENGTH], aes_context *contex
     
 }
 
-void blockToHex(unsigned char hex[MAX_MESSAGE_LENGTH], const aes_context *context)
+void blockToHex(uint8_t hex[MAX_MESSAGE_LENGTH], const aes_context *context)
 {
     int counter = 0;
     for (int block = 0; block < context->blocks; block++)
@@ -204,9 +207,9 @@ void blockToHex(unsigned char hex[MAX_MESSAGE_LENGTH], const aes_context *contex
 }
 
 
-unsigned char galoisMultiplication(unsigned char multiplicand, unsigned char multiplier)
+uint8_t galoisMultiplication(uint8_t multiplicand, uint8_t multiplier)
 {
-    unsigned char product = 0;
+    uint8_t product = 0;
 
     for (int i = 0; i < BITS_PER_BYTE; i++)
     {
@@ -215,7 +218,7 @@ unsigned char galoisMultiplication(unsigned char multiplicand, unsigned char mul
             product = product ^ multiplicand;
         }
 
-        unsigned char overflow = multiplicand & 0x80;
+        uint8_t overflow = multiplicand & 0x80;
 
         multiplicand = multiplicand << 1;
 
@@ -231,30 +234,30 @@ unsigned char galoisMultiplication(unsigned char multiplicand, unsigned char mul
 }
 
 
-void mixColumn(unsigned char column[ROWS], const unsigned char galois_field[ROWS][COLUMNS])
+void mixColumn(uint8_t word[ROWS], const uint8_t galois_field[ROWS][COLUMNS])
 {
-    unsigned char result[WORD];
+    uint8_t result[WORD];
 
-    for (int i = 0; i < COLUMNS; i++)
+    for (int i = 0; i < ROWS; i++)
     {
         result[i] =
-        galoisMultiplication(column[0], galois_field[i][0]) ^
-        galoisMultiplication(column[1], galois_field[i][1]) ^
-        galoisMultiplication(column[2], galois_field[i][2]) ^
-        galoisMultiplication(column[3], galois_field[i][3]);
+        galoisMultiplication(word[0], galois_field[i][0]) ^
+        galoisMultiplication(word[1], galois_field[i][1]) ^
+        galoisMultiplication(word[2], galois_field[i][2]) ^
+        galoisMultiplication(word[3], galois_field[i][3]);
     }
 
-    for (int i = 0; i < COLUMNS; i++)
+    for (int i = 0; i < ROWS; i++)
     {
-        column[i] = result[i];
+        word[i] = result[i];
     }
 }
 
 
-void mixColumns(unsigned char state[ROWS][COLUMNS], const unsigned char gf[ROWS][COLUMNS])
+void mixColumns(uint8_t state[ROWS][COLUMNS], const uint8_t gf[ROWS][COLUMNS])
 {
 
-    unsigned char state_column[ROWS];
+    uint8_t state_column[ROWS];
     for (int column = 0; column < COLUMNS; column++)
     {
         for (int row = 0; row < ROWS; row++)
@@ -288,70 +291,51 @@ void inverseMixColumnBlocks(aes_context *context)
     }
 }
 
+void shift(uint8_t state[ROWS][COLUMNS], int row)
+{
 
+    uint8_t tmp;
 
-void shiftRow(unsigned char state[ROWS][COLUMNS])
-{   
-
-    unsigned char tmp;
-
-    tmp         = state[1][0];
-    state[1][0] = state[1][1];
-    state[1][1] = state[1][2];
-    state[1][2] = state[1][3];
-    state[1][3] = tmp;
-
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < row; i++)
     {
-        tmp         = state[2][0];
-        state[2][0] = state[2][1];
-        state[2][1] = state[2][2];
-        state[2][2] = state[2][3];
-        state[2][3] = tmp;
+        tmp           = state[row][0];
+        state[row][0] = state[row][1];
+        state[row][1] = state[row][2];
+        state[row][2] = state[row][3];
+        state[row][3] = tmp;
     }
-    
-    for (int i = 0; i < 3; i++)
-    {
-        tmp         = state[3][0];
-        state[3][0] = state[3][1];
-        state[3][1] = state[3][2];
-        state[3][2] = state[3][3];
-        state[3][3] = tmp;
-    }
-        
-    
 }
 
-void inverseShiftRow(unsigned char state[ROWS][COLUMNS])
+void inverseShift(uint8_t state[ROWS][COLUMNS], int row)
+{
+
+    uint8_t tmp;
+
+    for (int i = 0; i < row; i++)
+    {
+        tmp           = state[row][3];
+        state[row][3] = state[row][2];
+        state[row][2] = state[row][1];
+        state[row][1] = state[row][0];
+        state[row][0] = tmp;
+    }
+}
+
+
+void shiftRow(uint8_t state[ROWS][COLUMNS])
 {   
-
-    unsigned char tmp;
-
-    tmp         = state[1][3];
-    state[1][3] = state[1][2];
-    state[1][2] = state[1][1];
-    state[1][1] = state[1][0];
-    state[1][0] = tmp;
-
-    for (int i = 0; i < 2; i++)
+    for (int i = 1; i < 4; i++)
     {
-        tmp         = state[2][3];
-        state[2][3] = state[2][2];
-        state[2][2] = state[2][1];
-        state[2][1] = state[2][0];
-        state[2][0] = tmp;
-    }
-    
-    for (int i = 0; i < 3; i++)
+        shift(state, i);
+    } 
+}
+
+void inverseShiftRow(uint8_t state[ROWS][COLUMNS])
+{   
+    for (int i = 1; i < 4; i++)
     {
-        tmp         = state[3][3];
-        state[3][3] = state[3][2];
-        state[3][2] = state[3][1];
-        state[3][1] = state[3][0];
-        state[3][0] = tmp;
+        inverseShift(state, i);
     }
-        
-    
 }
 
 
@@ -371,9 +355,9 @@ void inverseShiftRows(aes_context *context)
     }
 }
 
-void rotateWord(unsigned char *word)
+void rotateWord(uint8_t *word)
 {
-    unsigned char tmp;
+    uint8_t tmp;
 
     tmp = word[0];
     word[0] = word[1];
@@ -382,7 +366,7 @@ void rotateWord(unsigned char *word)
     word[3] = tmp;
 }
 
-void subWord(unsigned char *word)
+void subWord(uint8_t *word)
 {
     for (int i = 0; i < WORD; i++)
     {
@@ -392,12 +376,12 @@ void subWord(unsigned char *word)
 
 void keySchedule(aes_context *context)
 {
-    int Nr = context->rounds;       // Number of rounds
-    int Nk = context->key_len / 4;  // Number of 32-bit words in the key (4, 6, 8)
-    int Nb = WORD;                  // Number of columns in a state
-    int total_words = Nb * (Nr + 1);// Total 32-bit words needed for round keys
-    unsigned char tmp[WORD];        // Temporary word for manipulation
-    unsigned char words[60][4];     // MAXIMUM OF 60 WORDS IN AES-256
+    int Nr = context->rounds;           // Number of rounds
+    int Nk = context->key_len / 4;      // Number of 32-bit words in the key (4, 6, 8)
+    int Nb = WORD;                      // Number of columns in a state
+    int total_words = Nb * (Nr + 1);    // Total 32-bit words needed for round keys
+    uint8_t tmp[WORD];                  // Temporary word for manipulation
+    uint8_t words[MAX_WORDS_256][WORD]; // MAXIMUM OF 60 WORDS IN AES-256
 
     
 
@@ -451,7 +435,7 @@ void keySchedule(aes_context *context)
 
 
 
-void addKeyToState(unsigned char state[ROWS][COLUMNS], const unsigned char round_key[ROWS][COLUMNS])
+void addKeyToState(uint8_t state[ROWS][COLUMNS], const uint8_t round_key[ROWS][COLUMNS])
 {
     for (int row = 0; row < ROWS; row++)
     {
@@ -471,7 +455,7 @@ void addKeyToBlocks(aes_context *context, int round)
 }
 
 
-void setKey(aes_context *context, const unsigned char key[])
+void setKey(aes_context *context, const uint8_t key[])
 { 
     if (context->key_len != AES_128_KEY && context->key_len != AES_192_KEY && context->key_len != AES_256_KEY)
     {
@@ -501,7 +485,7 @@ void setKey(aes_context *context, const unsigned char key[])
 }
 
 
-void hexStringToBytes(const char *hex, unsigned char *bytes, int *len) {
+void hexStringToBytes(const char *hex, uint8_t *bytes, int *len) {
     int hex_len = strlen(hex);
     if (hex_len % 2 != 0) 
     {
@@ -552,7 +536,7 @@ void printBlocksRow(aes_context *context)
 }
 
 
-void encrypt(aes_context *context, char *plain_text, unsigned char *hex_text)
+void encrypt(aes_context *context, char *plain_text, uint8_t *hex_text)
 {
 
     int plain_text_len = stringToHex(plain_text, hex_text);
@@ -566,13 +550,13 @@ void encrypt(aes_context *context, char *plain_text, unsigned char *hex_text)
 
     for (i = 1; i < context->rounds; i++)
     {
-        substitute(context, sbox);
+        substituteBlocks(context, sbox);
         shiftRows(context);
         mixColumnBlocks(context);
         addKeyToBlocks(context, i);
     }
 
-    substitute(context, sbox);
+    substituteBlocks(context, sbox);
     shiftRows(context);
     addKeyToBlocks(context, i);
     
@@ -582,7 +566,7 @@ void encrypt(aes_context *context, char *plain_text, unsigned char *hex_text)
     printHex(hex_text, context->length);
 }
 
-void decrypt(aes_context *context, char *encrypted_text, unsigned char *hex_text)
+void decrypt(aes_context *context, char *encrypted_text, uint8_t *hex_text)
 {
     context->length = stringToHex(encrypted_text, hex_text); 
     context->blocks = context->length / 16;
@@ -594,13 +578,13 @@ void decrypt(aes_context *context, char *encrypted_text, unsigned char *hex_text
     for (int i = context->rounds - 1; i >= 1; i--)
     {
         inverseShiftRows(context);
-        substitute(context, rsbox);
+        substituteBlocks(context, rsbox);
         addKeyToBlocks(context, i);
         inverseMixColumnBlocks(context);
     }
 
     inverseShiftRows(context);
-    substitute(context, rsbox);
+    substituteBlocks(context, rsbox);
     addKeyToBlocks(context, 0);
 
     blockToHex(hex_text, context); 
@@ -621,10 +605,10 @@ int main(void)
     char encrypted_text[MAX_MESSAGE_LENGTH];
     char base64_text[MAX_MESSAGE_LENGTH * 4];
 
-    unsigned char hex_text[MAX_MESSAGE_LENGTH * 2];
+    uint8_t hex_text[MAX_MESSAGE_LENGTH * 2];
 
     char input_key[AES_256_KEY * 2 + 1];
-    unsigned char key[AES_256_KEY];
+    uint8_t key[AES_256_KEY];
 
     aes_context context;   
 
