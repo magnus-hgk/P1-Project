@@ -3,59 +3,95 @@
 #include <string.h>
 #include "base64.h"
 
-static const char b64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+/*
 
-int base64_encode(const uint8_t *in, int in_len, char *out) {
-    int i, j = 0;
-    uint8_t a3[3];
-    uint8_t a4[4];
+    Based on work by https://github.com/elzoughby/Base64/tree/master
 
-    for (i = 0; i < in_len;) {
-        int k;
-        for (k = 0; k < 3; k++) {
-            if (i < in_len) a3[k] = in[i++];
-            else a3[k] = 0;
+*/
+
+// Base64 character set - Contains only printable characters
+static const char BASE64_ALPHABET[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+int base64_encode(const uint8_t *input, int input_length, char *output)
+{
+    int input_index = 0;
+    int output_index = 0;
+
+    // Process input in 3-byte blocks - Base64 increase lenght by ~33%
+    while (input_index < input_length) {
+        uint8_t input_block[3] = {0, 0, 0};
+        uint8_t encoded_block[4];
+        int bytes_read = 0;
+
+        // Read 3 bytes - Unless at end of input
+        for (bytes_read = 0; bytes_read < 3 && input_index < input_length; bytes_read++) {
+            input_block[bytes_read] = input[input_index++];
         }
 
-        a4[0] = (a3[0] & 0xfc) >> 2;
-        a4[1] = ((a3[0] & 0x03) << 4) + ((a3[1] & 0xf0) >> 4);
-        a4[2] = ((a3[1] & 0x0f) << 2) + ((a3[2] & 0xc0) >> 6);
-        a4[3] = a3[2] & 0x3f;
+        // Convert 3 bytes into 4 Base64 values
+        encoded_block[0] = (input_block[0] >> 2) & 0x3F;
+        encoded_block[1] = ((input_block[0] & 0x03) << 4) |
+                           ((input_block[1] >> 4) & 0x0F);
+        encoded_block[2] = ((input_block[1] & 0x0F) << 2) |
+                           ((input_block[2] >> 6) & 0x03);
+        encoded_block[3] = input_block[2] & 0x3F;
 
-        for (k = 0; k < 4; k++) {
-            if (i - k > in_len) out[j++] = '=';
-            else out[j++] = b64_table[a4[k]];
+        // Write encoded output or padding based on the base64 characterset.
+        for (int i = 0; i < 4; i++) {
+            if (i <= bytes_read) {
+                output[output_index++] = BASE64_ALPHABET[encoded_block[i]];
+            } else {
+                output[output_index++] = '=';
+            }
         }
     }
 
-    out[j] = '\0';
-    return j;
+    // Null-terminate output 
+    output[output_index] = '\0';
+
+    // Returns the lenght of the output
+    return output_index;
 }
 
-int base64_decode(const char *in, uint8_t *out) {
-    int in_len = strlen(in);
-    int i = 0, j = 0;
-    uint8_t a3[3], a4[4];
-    int k;
+int base64_decode(const char *input, uint8_t *output)
+{
+    int input_length = strlen(input);
+    int input_index = 0;
+    int output_index = 0;
 
-    while (i < in_len) {
-        int pad = 0;
-        for (k = 0; k < 4; k++) {
-            if (in[i] == '=') { a4[k] = 0; pad++; i++; }
-            else {
-                const char *p = strchr(b64_table, in[i++]);
-                if (p) a4[k] = p - b64_table;
-                else a4[k] = 0;
+    // Process input in 4-character blocks - Base64 decode reduces size by ~25%
+    while (input_index < input_length) {
+        uint8_t decoded_block[3];
+        uint8_t encoded_block[4] = {0, 0, 0, 0};
+        int padding_count = 0;
+
+        // Decode Base64 characters
+        for (int i = 0; i < 4 && input_index < input_length; i++) {
+            if (input[input_index] == '=') {
+                encoded_block[i] = 0;
+                padding_count++;
+                input_index++;
+            } else {
+                const char *position = strchr(BASE64_ALPHABET, input[input_index++]);
+                encoded_block[i] = position ? (uint8_t)(position - BASE64_ALPHABET) : 0;
             }
         }
 
-        a3[0] = (a4[0] << 2) + ((a4[1] & 0x30) >> 4);
-        a3[1] = ((a4[1] & 0x0f) << 4) + ((a4[2] & 0x3c) >> 2);
-        a3[2] = ((a4[2] & 0x03) << 6) + a4[3];
+        // Convert Base64 values back to bytes
+        decoded_block[0] = (encoded_block[0] << 2) |
+                           ((encoded_block[1] >> 4) & 0x03);
+        decoded_block[1] = ((encoded_block[1] & 0x0F) << 4) |
+                           ((encoded_block[2] >> 2) & 0x0F);
+        decoded_block[2] = ((encoded_block[2] & 0x03) << 6) |
+                           encoded_block[3];
 
-        for (k = 0; k < 3 - pad; k++)
-            out[j++] = a3[k];
+        // Map decoded bytes to output.
+        for (int i = 0; i < 3 - padding_count; i++) {
+            output[output_index++] = decoded_block[i];
+        }
     }
 
-    return j;
+    // Returns the length of the output.
+    return output_index;
 }
