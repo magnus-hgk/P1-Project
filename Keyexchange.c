@@ -227,7 +227,7 @@ char* run_server(){
     // Sign A
     char *A_hex = BN_bn2hex(A);
     unsigned int sig_len;
-    unsigned char *sig = sign_data(rsa_key, (unsigned char*)A_hex, strlen(A_hex), &sig_len);
+    uint8_t *sig = sign_data(rsa_key, (uint8_t*)A_hex, strlen(A_hex), &sig_len);
     if (send(client_socket, (char*)&sig_len, sizeof(int), 0) == SOCKET_ERROR){
         handle_error("send sig len failed");
     }
@@ -246,7 +246,7 @@ char* run_server(){
     if (recv(client_socket, (char*)&client_sig_len, sizeof(int), 0) <= 0){
         handle_error("Failed to receieve signature length");
     }
-    unsigned char *client_sig = (unsigned char*)malloc(client_sig_len);
+    uint8_t *client_sig = (uint8_t*)malloc(client_sig_len);
     int total_rec = 0;
     while(total_rec < client_sig_len){
         int r = recv(client_socket, (char*)client_sig + total_rec, client_sig_len - total_rec, 0);
@@ -257,7 +257,7 @@ char* run_server(){
 
     // Verify
     char *B_hex = BN_bn2hex(B);
-    if (verify_signature(client_rsa_key, (char*)B_hex, strlen(B_hex), client_sig, client_sig_len) != 1) {
+    if (verify_signature(client_rsa_key, (uint8_t*)B_hex, strlen(B_hex), client_sig, client_sig_len) != 1) {
         printf("ERROR: Signature verification failed! Potential Man in the middle attack \n");
         WSACleanup();
         exit(1);
@@ -277,7 +277,7 @@ char* run_server(){
     printf("--------------------------------------------------\n");
 
     // Derive Key
-    unsigned char derived_key[16];
+    uint8_t derived_key[16];
     derive_key(secret_str,derived_key);
 
     // Convert derived key to hex string for return
@@ -380,7 +380,7 @@ char* run_client(){
     if (recv(sock, (char*)&server_sig_len, sizeof(int), 0) <= 0){
         handle_error("Failed to receive signature length");
     }
-    unsigned char *server_sig = (unsigned char*)malloc(server_sig_len);
+    uint8_t *server_sig = (uint8_t*)malloc(server_sig_len);
     int total_rec = 0;
     while (total_rec < server_sig_len){
         int r = recv(sock, (char*)server_sig + total_rec, server_sig_len -total_rec, 0);
@@ -392,7 +392,7 @@ char* run_client(){
 
     // Verify
     char *A_hex = BN_bn2hex(A);
-    if (verify_signature(server_rsa_key, (unsigned char*)A_hex, strlen(A_hex), server_sig, server_sig_len) != 1){
+    if (verify_signature(server_rsa_key, (uint8_t*)A_hex, strlen(A_hex), server_sig, server_sig_len) != 1){
         printf("ERROR: Signature verification failed! Potential man in the middle attack \n");
         WSACleanup();
         exit(1);  
@@ -409,7 +409,7 @@ char* run_client(){
     //Sign B
     char *B_hex =BN_bn2hex(B);
     unsigned int sig_len;
-    unsigned char *sig = sign_data(rsa_key, (unsigned char*)B_hex, strlen(B_hex), &sig_len);
+    uint8_t *sig = sign_data(rsa_key, (uint8_t*)B_hex, strlen(B_hex), &sig_len);
     if (send(sock, (char*)&sig_len, sizeof(int), 0) == SOCKET_ERROR){
         handle_error("Failed to send length of signature");
     }
@@ -430,7 +430,7 @@ char* run_client(){
     printf("--------------------------------------------------\n");
 
     // Derive Key
-    unsigned char derived_key[16];
+    uint8_t derived_key[16];
     derive_key(secret_str, derived_key);
 
     // Convert derived Key to Hex for return
@@ -484,7 +484,7 @@ void hexStringToBytes(const char *hex, uint8_t *bytes, int *len) {
 //actual encryption function
 void encryption(char* secret){
     aes_context context;
-    unsigned char key[AES_256_KEY];
+    uint8_t key[AES_256_KEY];
     
     // Parse hex secret to key bytes
     hexStringToBytes(secret, key, &context.key_len);
@@ -492,7 +492,7 @@ void encryption(char* secret){
     keySchedule(&context);
 
     char plain_text[MAX_MESSAGE_LENGTH];
-    unsigned char hex_text[MAX_MESSAGE_LENGTH * 2]; // Buffer for encryption
+    uint8_t hex_text[MAX_MESSAGE_LENGTH * 2]; // Buffer for encryption
     char base64_text[MAX_MESSAGE_LENGTH * 4];
 
     printf("Enter message to encrypt: ");
@@ -513,14 +513,14 @@ void decrypt_message(char* secret) {
     printf("Decrypting message using secret: %s\n", secret);
     
     aes_context context;
-    unsigned char key[AES_256_KEY];
+    uint8_t key[AES_256_KEY];
 
     hexStringToBytes(secret, key, &context.key_len);
     setKey(&context, key);
     keySchedule(&context);
 
     char input_text[MAX_MESSAGE_LENGTH * 4]; 
-    unsigned char hex_text[MAX_MESSAGE_LENGTH * 2]; 
+    uint8_t hex_text[MAX_MESSAGE_LENGTH * 2]; 
 
     printf("Input encrypted text (base64): ");
     scanf(" \n%[^\n]s", input_text);
@@ -542,13 +542,13 @@ void send_encrypted_message(char* secret){
     
     // Encryption Logic Copied here to avoid recursion/double-prompt
     aes_context context;
-    unsigned char key[AES_256_KEY];
+    uint8_t key[AES_256_KEY];
     hexStringToBytes(secret, key, &context.key_len);
     setKey(&context, key);
     keySchedule(&context);
 
     char plain_text[MAX_MESSAGE_LENGTH];
-    unsigned char hex_text[MAX_MESSAGE_LENGTH * 2]; 
+    uint8_t hex_text[MAX_MESSAGE_LENGTH * 2]; 
     char base64_text[MAX_MESSAGE_LENGTH * 4];
 
     printf("Enter message to send: ");
@@ -583,12 +583,12 @@ void receive_encrypted_message(char* secret){
     }
     
     aes_context context;
-    unsigned char key[AES_256_KEY];
+    uint8_t key[AES_256_KEY];
     hexStringToBytes(secret, key, &context.key_len);
     setKey(&context, key);
     keySchedule(&context);
 
-    unsigned char hex_text[MAX_MESSAGE_LENGTH * 2];
+    uint8_t hex_text[MAX_MESSAGE_LENGTH * 2];
     
     // FIX: Capture length
     int len = base64_decode(message, hex_text);
@@ -612,13 +612,13 @@ EVP_PKEY* generate_rsa_key(){
 }
 
 void print_rsa_fingerprint(EVP_PKEY* pkey){
-    unsigned char *der = NULL;
+    uint8_t *der = NULL;
     int len = i2d_PublicKey(pkey, &der);
     if (len < 0) {
         handle_error("Failed to convert Public key to DER");
     }
 
-    unsigned char hash[SHA256_DIGEST_LENGTH];
+    uint8_t hash[SHA256_DIGEST_LENGTH];
     SHA256(der, len, hash);
     OPENSSL_free(der);
 
@@ -678,7 +678,7 @@ EVP_PKEY* receive_rsa_key(SOCKET sock){
     return pkey;
 }
 
-unsigned char* sign_data(EVP_PKEY* pkey, const unsigned char* data, int data_len, unsigned int* sig_len){
+uint8_t* sign_data(EVP_PKEY* pkey, const uint8_t* data, int data_len, unsigned int* sig_len){
     EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
     if (!mdctx){
         handle_error("EVP_MD_CTX_new failed");
@@ -691,7 +691,7 @@ unsigned char* sign_data(EVP_PKEY* pkey, const unsigned char* data, int data_len
         handle_error("EVP_DigestSign (size) failed");
     }
 
-    unsigned char* sig = (unsigned char*)malloc(*sig_len);
+    uint8_t* sig = (uint8_t*)malloc(*sig_len);
     if (!sig) handle_error("Malloc failed");
 
     if (EVP_DigestSign(mdctx, sig, (size_t*)sig_len, data, data_len) != 1) {
@@ -702,7 +702,7 @@ unsigned char* sign_data(EVP_PKEY* pkey, const unsigned char* data, int data_len
     return sig;
 }
 
-int verify_signature(EVP_PKEY* pkey, const unsigned char* data, int data_len, unsigned char* sig, unsigned int sig_len) {
+int verify_signature(EVP_PKEY* pkey, const uint8_t* data, int data_len, uint8_t* sig, unsigned int sig_len) {
     EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
     if (!mdctx) handle_error("EVP_MD_CTX_new failed");
 
@@ -720,7 +720,7 @@ char* create_key_from_password(){
     char password[MAX_PASSWORD_LENGTH];
     scanf("%s", password);
 
-    unsigned char derived_key[16];
+    uint8_t derived_key[16];
     
     // Calculate required hex buffer size (2 hex chars per byte + null terminator)
     int pwd_len = strlen(password);
@@ -748,7 +748,7 @@ char* create_key_from_password(){
     return final_key_hex;
 }
 
-void derive_key(const char* shared_secret, unsigned char* derived_key) {
+void derive_key(const char* shared_secret, uint8_t* derived_key) {
     EVP_KDF *kdf;
     EVP_KDF_CTX *kctx;
     OSSL_PARAM params[4], *p = params;

@@ -2,6 +2,7 @@
 #define KEYEXCHANGE_H
 
 #include <winsock2.h>
+#include <stdint.h>
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
@@ -25,9 +26,9 @@ void handle_error(const char *msg);
 // RSA and KDF functions
 EVP_PKEY* generate_rsa_key();
 void print_rsa_fingerprint(EVP_PKEY* pkey);
-unsigned char* sign_data(EVP_PKEY* pkey, const unsigned char* data, int data_len, unsigned int* sig_len);
-int verify_signature(EVP_PKEY* pkey, const unsigned char* data, int data_len, unsigned char* sig, unsigned int sig_len);
-void derive_key(const char* shared_secret, unsigned char* derived_key);
+uint8_t* sign_data(EVP_PKEY* pkey, const uint8_t* data, int data_len, unsigned int* sig_len);
+int verify_signature(EVP_PKEY* pkey, const uint8_t* data, int data_len, uint8_t* sig, unsigned int sig_len);
+void derive_key(const char* shared_secret, uint8_t* derived_key);
 void send_rsa_key(SOCKET sock, EVP_PKEY* pkey);
 EVP_PKEY* receive_rsa_key(SOCKET sock);
 
