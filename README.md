@@ -63,6 +63,6 @@ After compiling, run the program with:
 `./aes_program`
 
 
-
+---
 ## Contributions
 All contributions are welcome!
