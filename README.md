@@ -52,10 +52,10 @@ git clone https://github.com/magnus-hgk/P1-Project.git
 cd P1-Project
 ```
 ## 2. Compile the program using gcc
-
+```sh
 gcc -std=c11 -Wall -Wextra -O2 \
     -o aes_program Main.c aes.c base64.c Keyexchange.c
-
+```
 This will produce an executable named `aes_program`.
 
 ## Running the Program
