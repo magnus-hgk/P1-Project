@@ -17,18 +17,18 @@ This repository contains the source code for our AES encryption and decryption i
 ---
 
 ## Repository Structure
-/ (root)
-├── aes.c # AES implementation
-├── aes.h # AES interface definitions
-├── base64.c # Base64 encoding/decoding
-├── base64.h
-├── Keyexchange.c # Key exchange utilities
-├── Keyexchange.h
-├── Main.c # Main application entry point
-├── tests.c # Test cases
-├── old_helpers.c # Legacy helper code
-├── main_program.exe # Precompiled binary (optional)
-├── README.md # Project documentation
+/ (root)______
+├── aes.c # AES implementation______
+├── aes.h # AES interface definitions______
+├── base64.c # Base64 encoding/decoding______
+├── base64.h______
+├── Keyexchange.c # Key exchange utilities______
+├── Keyexchange.h______
+├── Main.c # Main application entry point______
+├── tests.c # Test cases______
+├── old_helpers.c # Legacy helper code______
+├── main_program.exe # Precompiled binary (optional)______
+├── README.md # Project documentation______
 
 ---
 
