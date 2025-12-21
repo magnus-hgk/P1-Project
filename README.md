@@ -30,7 +30,6 @@ This repository contains the source code for our AES encryption and decryption i
 ├── main_program.exe # Precompiled binary (optional)
 ├── README.md # Project documentation
 
-
 ---
 
 ## Requirements
