@@ -569,6 +569,15 @@ void send_encrypted_message(char* secret){
 }
 
 void receive_encrypted_message(char* secret){
+    if (g_socket == INVALID_SOCKET){
+        printf("Error: No socket established. Please run key exchange first.\n");
+        return;
+    }
+    if (secret == NULL){
+        printf("Error: No shared secret established. Please run key exchange first.\n");
+        return;
+    }
+
     printf("Receiving message...\n");
     unsigned int message_len;
     if (recv(g_socket, (char*)&message_len, sizeof(int), 0) == SOCKET_ERROR){
@@ -578,9 +587,20 @@ void receive_encrypted_message(char* secret){
     // FIX: proper buffer size
     char message[MAX_MESSAGE_LENGTH * 4]; 
     
-    if (recv(g_socket, message, message_len, 0) == SOCKET_ERROR){
-        handle_error("Failed to receive message");
+    if (message_len >= sizeof(message)) {
+        printf("Error: Received message size (%u bytes) exceeds buffer capacity.\n", message_len);
+        return;
     }
+
+    int received_total = 0;
+    while (received_total < (int)message_len) {
+        int r = recv(g_socket, message + received_total, message_len - received_total, 0);
+        if (r <= 0) {
+             handle_error("Failed to receive message body");
+        }
+        received_total += r;
+    }
+    message[message_len] = '\0'; // Null-terminate for base64_decode
     
     aes_context context;
     uint8_t key[AES_256_KEY];
