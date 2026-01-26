@@ -535,7 +535,7 @@ void aesEncryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE], int block
     shiftRows(context);
     addKeyToBlocks(context, context->rounds);
 
-    memcpy(state, context->aes_blocks[0], BLOCK_SIZE);
+    memcpy(state, context->aes_blocks[block_number], BLOCK_SIZE);
     stateToBuffer(state, buffer);
 }
 
@@ -562,6 +562,6 @@ void aesDecryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE], int block
     substituteBlocks(context, rsbox);
     addKeyToBlocks(context, 0);
 
-    memcpy(state, context->aes_blocks[0], BLOCK_SIZE);
+    memcpy(state, context->aes_blocks[block_number], BLOCK_SIZE);
     stateToBuffer(state, buffer);
 }
