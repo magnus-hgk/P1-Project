@@ -32,6 +32,10 @@ void keySchedule(aes_context *context);
 void aesEncryptBlock(aes_context *context, uint8_t block[BLOCK_SIZE], int block_number);
 void aesDecryptBlock(aes_context *context, uint8_t block[BLOCK_SIZE], int block_number);
 
+/* -= MESSAGE HELPERS =- */
+uint8_t* encrypt(aes_context *context, const char *plain_text, int *out_len);
+uint8_t* decrypt(aes_context *context, uint8_t *encrypted_text, int encrypted_len, int *out_len);
+
 // -= HELPER FUNCTIONS AND PRIMITIVES =-
 uint8_t galoisMultiplication(uint8_t a, uint8_t b);
 void mixColumn(uint8_t col[ROWS], const uint8_t gf[ROWS][COLUMNS]);

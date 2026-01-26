@@ -113,11 +113,11 @@ void testAES128EncryptDecrypt(void)
     keySchedule(&context);
 
     memcpy(buffer, plaintext, 16);
-    aesEncryptBlock(&context, buffer, 1);
+    aesEncryptBlock(&context, buffer, 0);
 
     ASSERT_EQ_BUF(buffer, expected_cipher, 16);
 
-    aesDecryptBlock(&context, buffer, 1);
+    aesDecryptBlock(&context, buffer, 0);
     ASSERT_EQ_BUF(buffer, plaintext, 16);
 
     printf("- AES-128 encrypt/decrypt   OK\n");

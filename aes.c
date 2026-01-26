@@ -473,35 +473,65 @@ void setKey(aes_context *context, const uint8_t *key)
 
 
 // Helper function that supplies aesEncryptBlock() with the correct parameters
-void encrypt(aes_context *context, char *plain_text, uint8_t hex_text[16])
+uint8_t* encrypt(aes_context *context, const char *plain_text, int *out_len)
 {
 
     int plain_text_len = strlen(plain_text);
+
+
+    int padded_len = plain_text_len + (BLOCK_SIZE - (plain_text_len % BLOCK_SIZE));
+
+    if (plain_text_len % BLOCK_SIZE == 0)
+    {
+        padded_len += BLOCK_SIZE;
+    }
+
+    uint8_t *hex_text = (uint8_t *)malloc(padded_len);
+    if (!hex_text)
+    {
+        perror("Failed to allocate memory for hex text, while decrypting.\n");
+    }
+
+
     memcpy(hex_text, plain_text, plain_text_len);
+
+    int final_len = padPlainText(hex_text, plain_text_len);
     
-    context->length = padPlainText(hex_text, plain_text_len);
+    context->length = final_len;
     context->blocks = context->length / BLOCK_SIZE;
 
     for (int i = 0; i < context->blocks; i++)
     {
-        aesEncryptBlock(context, &hex_text[i * 16], i);
+        aesEncryptBlock(context, &hex_text[i * BLOCK_SIZE], i);
     }
+
+    *out_len = final_len;
+
+    return hex_text;
 }
 
 // Helper function that supplies aesDecryptBlock() with the correct parameters
-void decrypt(aes_context *context, uint8_t *encrypted_text, int encrypted_len, uint8_t plain_text[STATE_SIZE])
+uint8_t* decrypt(aes_context *context, uint8_t *encrypted_text, int encrypted_len, int *out_len)
 {
     // Ciphertext length MUST be a multiple of 16
-    if (encrypted_len % 16 != 0)
+    if (encrypted_len % BLOCK_SIZE != 0)
     {
         printf("Invalid ciphertext length\n");
+        exit(EXIT_FAILURE);
+    }
+
+    uint8_t *plain_text = (uint8_t *)malloc(encrypted_len);
+
+    if (!plain_text) 
+    {
+        perror("Failed to allocate plain_text");
         exit(EXIT_FAILURE);
     }
 
     memcpy(plain_text, encrypted_text, encrypted_len);
 
     context->length = encrypted_len;
-    context->blocks = encrypted_len / 16;
+    context->blocks = encrypted_len / BLOCK_SIZE;
 
     for (int i = 0; i < context->blocks; i++)
     {
@@ -509,6 +539,10 @@ void decrypt(aes_context *context, uint8_t *encrypted_text, int encrypted_len, u
     }
 
     context->length = removePadding(plain_text, context->length);
+
+    *out_len = context->length;
+
+    return plain_text;
 }
 
 
@@ -521,19 +555,19 @@ void aesEncryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE], int block
 
     memcpy(context->aes_blocks[block_number], state, BLOCK_SIZE);
     
-    addKeyToBlocks(context, 0);
+    addKeyToState(context->aes_blocks[block_number], context->round_keys[0]);
 
     for (int round = 1; round < context->rounds; round++)
     {
-        substituteBlocks(context, sbox);
-        shiftRows(context);
-        mixColumnBlocks(context);
-        addKeyToBlocks(context, round);
+        substituteState(context->aes_blocks[block_number], sbox);
+        shiftRow((context->aes_blocks[block_number]));
+        mixColumns(context->aes_blocks[block_number], rijndael_galois_field);
+        addKeyToState(context->aes_blocks[block_number], context->round_keys[round]);
     }
 
-    substituteBlocks(context, sbox);
-    shiftRows(context);
-    addKeyToBlocks(context, context->rounds);
+    substituteState(context->aes_blocks[block_number], sbox);
+    shiftRow(context->aes_blocks[block_number]);
+    addKeyToState(context->aes_blocks[block_number], context->round_keys[context->rounds]);
 
     memcpy(state, context->aes_blocks[block_number], BLOCK_SIZE);
     stateToBuffer(state, buffer);
@@ -548,19 +582,19 @@ void aesDecryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE], int block
 
     memcpy(context->aes_blocks[block_number], state, BLOCK_SIZE);
 
-    addKeyToBlocks(context, context->rounds);
+    addKeyToState(context->aes_blocks[block_number], context->round_keys[context->rounds]);
 
     for (int round = context->rounds - 1; round >= 1; round--)
     {
-        inverseShiftRows(context);
-        substituteBlocks(context, rsbox);
-        addKeyToBlocks(context, round);
-        inverseMixColumnBlocks(context);
+        inverseShiftRow(context->aes_blocks[block_number]);
+        substituteState(context->aes_blocks[block_number], rsbox);
+        addKeyToState(context->aes_blocks[block_number],  context->round_keys[round]);
+        mixColumns(context->aes_blocks[block_number], inverse_rijndael_galois_field);
     }
 
-    inverseShiftRows(context);
-    substituteBlocks(context, rsbox);
-    addKeyToBlocks(context, 0);
+    inverseShiftRow(context->aes_blocks[block_number]);
+    substituteState(context->aes_blocks[block_number], rsbox);
+    addKeyToState(context->aes_blocks[block_number], context->round_keys[0]);
 
     memcpy(state, context->aes_blocks[block_number], BLOCK_SIZE);
     stateToBuffer(state, buffer);
