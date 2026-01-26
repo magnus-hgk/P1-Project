@@ -19,10 +19,12 @@
 #define AES_192_KEY 24
 #define AES_256_KEY 32
 
-#define KEY_SIZE 16
+// KEY EXPANSION WORDS
+#define MAX_WORDS_128 44
+#define MAX_WORDS_192 52
 #define MAX_WORDS_256 60
 
-// BITS AND  BYTES
+// BITS AND BYTES
 #define BITS_PER_BYTE 8
 
 // CONTEXT, STATE, WORD
@@ -157,12 +159,12 @@ int removePadding(uint8_t *data, int data_len)
 void substituteState(uint8_t state[ROWS][COLUMNS], const uint8_t sbox[256])
 {
     for (int column = 0; column < COLUMNS; column++)
+    {
+        for (int row = 0; row < ROWS; row++)
         {
-            for (int row = 0; row < ROWS; row++)
-            {
-                state[row][column] = sbox[state[row][column]];
-            }
+            state[row][column] = sbox[state[row][column]];
         }
+    }
 }
 
 // Calls substituteState for each state stored in context 
@@ -187,7 +189,7 @@ uint8_t galoisMultiplication(uint8_t multiplicand, uint8_t multiplier)
         if (multiplier & 1)
         {
             product = product ^ multiplicand;
-        }
+        } 
 
         // Stores if the MSB is 1 in overflow
         uint8_t overflow = multiplicand & 0x80;
@@ -232,7 +234,6 @@ void mixColumn(uint8_t word[ROWS], const uint8_t galois_field[ROWS][COLUMNS])
 // Supplies mixColumn with all words from the state
 void mixColumns(uint8_t state[ROWS][COLUMNS], const uint8_t gf[ROWS][COLUMNS])
 {
-
     uint8_t state_column[ROWS];
     for (int column = 0; column < COLUMNS; column++)
     {
@@ -271,7 +272,6 @@ void inverseMixColumnBlocks(aes_context *context)
 // Applies r left shift to row r in a state
 void shift(uint8_t state[ROWS][COLUMNS], int row)
 {
-
     uint8_t tmp;
 
     for (int i = 0; i < row; i++)
@@ -287,7 +287,6 @@ void shift(uint8_t state[ROWS][COLUMNS], int row)
 // Applies r right shifts to row r in a state
 void inverseShift(uint8_t state[ROWS][COLUMNS], int row)
 {
-
     uint8_t tmp;
 
     for (int i = 0; i < row; i++)
@@ -335,6 +334,7 @@ void inverseShiftRows(aes_context *context)
         inverseShiftRow(context->aes_blocks[i]);
     }
 }
+
 
 // Rotates a word cyclically upwards - used in key expansion
 void rotateWord(uint8_t *word)
@@ -401,8 +401,7 @@ void keySchedule(aes_context *context)
         for (int j = 0; j < WORD; j++)
         {
             words[i][j] = words[i - Nk][j] ^ tmp[j];
-        }
-        
+        }    
     }
 
     // Maps all calculated words to round_keys in the context
@@ -417,7 +416,6 @@ void keySchedule(aes_context *context)
             }
         }
     }
-
 }
 
 
@@ -474,8 +472,6 @@ void setKey(aes_context *context, const uint8_t *key)
 
 
 
-
-
 // Helper function that supplies aesEncryptBlock() with the correct parameters
 void encrypt(aes_context *context, char *plain_text, uint8_t hex_text[16])
 {
@@ -488,7 +484,7 @@ void encrypt(aes_context *context, char *plain_text, uint8_t hex_text[16])
 
     for (int i = 0; i < context->blocks; i++)
     {
-        aesEncryptBlock(context, &hex_text[i * 16]);
+        aesEncryptBlock(context, &hex_text[i * 16], i);
     }
 }
 
@@ -509,7 +505,7 @@ void decrypt(aes_context *context, uint8_t *encrypted_text, int encrypted_len, u
 
     for (int i = 0; i < context->blocks; i++)
     {
-        aesDecryptBlock(context, &plain_text[i * STATE_SIZE]);
+        aesDecryptBlock(context, &plain_text[i * STATE_SIZE], i);
     }
 
     context->length = removePadding(plain_text, context->length);
@@ -517,14 +513,14 @@ void decrypt(aes_context *context, uint8_t *encrypted_text, int encrypted_len, u
 
 
 // Performs AES encryption on one state
-void aesEncryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE])
+void aesEncryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE], int block_number)
 {
-    context->blocks = 1;
 
     uint8_t state[ROWS][COLUMNS];
     bufferToState(buffer, state);
 
-    memcpy(context->aes_blocks[0], state, BLOCK_SIZE);
+    memcpy(context->aes_blocks[block_number], state, BLOCK_SIZE);
+    
     addKeyToBlocks(context, 0);
 
     for (int round = 1; round < context->rounds; round++)
@@ -544,14 +540,14 @@ void aesEncryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE])
 }
 
 // Performs AES decryption on one state
-void aesDecryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE])
+void aesDecryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE], int block_number)
 {
     context->blocks = 1;
 
     uint8_t state[ROWS][COLUMNS];
     bufferToState(buffer, state);
 
-    memcpy(context->aes_blocks[0], state, BLOCK_SIZE);
+    memcpy(context->aes_blocks[block_number], state, BLOCK_SIZE);
 
     addKeyToBlocks(context, context->rounds);
 
