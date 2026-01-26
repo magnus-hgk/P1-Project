@@ -29,8 +29,8 @@ typedef struct
 void setKey(aes_context *context, const uint8_t *key);
 void keySchedule(aes_context *context);
 
-void aesEncryptBlock(aes_context *context, uint8_t block[BLOCK_SIZE]);
-void aesDecryptBlock(aes_context *context, uint8_t block[BLOCK_SIZE]);
+void aesEncryptBlock(aes_context *context, uint8_t block[BLOCK_SIZE], int block_number);
+void aesDecryptBlock(aes_context *context, uint8_t block[BLOCK_SIZE], int block_number);
 
 // -= HELPER FUNCTIONS AND PRIMITIVES =-
 uint8_t galoisMultiplication(uint8_t a, uint8_t b);
