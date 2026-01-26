@@ -542,7 +542,6 @@ void aesEncryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE], int block
 // Performs AES decryption on one state
 void aesDecryptBlock(aes_context *context, uint8_t buffer[BLOCK_SIZE], int block_number)
 {
-    context->blocks = 1;
 
     uint8_t state[ROWS][COLUMNS];
     bufferToState(buffer, state);
